@@ -106,7 +106,7 @@ h2::after{content:"";flex:1;height:1px;background:var(--rule)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--c);align-self:center;box-shadow:0 0 0 3px color-mix(in oklch,var(--c) 22%,transparent)}
 .n{font:500 14px var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .t{font-weight:500;overflow-wrap:anywhere;min-width:0}
-.tag{font:500 12px var(--font-mono);color:var(--c);border:1px solid color-mix(in oklch,var(--c) 45%,transparent);border-radius:4px;padding:1px 6px;margin-right:8px;white-space:nowrap}
+.tag{font:500 12px var(--font-mono);color:var(--c);border:1px solid color-mix(in oklch,var(--c) 45%,transparent);border-radius:4px;padding:1px 6px;margin-left:8px;white-space:nowrap}
 .m{font:13px var(--font-mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .age{font:13px var(--font-mono);color:var(--ink-2);text-align:right}
 .r-need{--c:var(--need)}.r-done{--c:var(--done)}
@@ -135,7 +135,7 @@ async function load(){
     for(const a of list){
       const r=el("div",`row r-${key}`+(a.pane_id===sel?" sel":""));r.dataset.pane=a.pane_id;
       const t=el("div","t",a.terminal_title_stripped||a.pane_id);
-      if(a.background)t.prepend(el("span","tag",`bg: ${a.background}`));
+      if(a.background)t.append(el("span","tag",`bg: ${a.background}`));
       r.append(el("span","dot"),el("span","n",(a.cwd||"").split("/").pop()||a.pane_id),t,
         el("span","m",`${a.agent} · ${a.pane_id}`),el("span","age",ago(a.since)));
       r.onclick=()=>select(a.pane_id);
