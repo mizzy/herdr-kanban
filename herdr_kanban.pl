@@ -16,6 +16,13 @@ sub agents {
     my $list = eval { decode_json(herdr(qw(agent list)))->{result}{agents} } || [];
     my $now  = time;
     for my $a (@$list) {
+        # herdr calls a Claude idle once its turn ends, even while background shells/monitors it will
+        # wake up on are still running. Claude's footer lists them ("· 1 shell · ... ↓ to manage").
+        if (($a->{agent} // '') eq 'claude' && ($a->{agent_status} // '') =~ /^(idle|done)$/) {
+            my ($footer) = grep /to manage/, split /\n/, herdr(qw(agent read), $a->{pane_id}, qw(--lines 3));
+            my @bg = ($footer // '') =~ /(\d+ (?:shell|monitor)s?)\b/g;
+            @$a{qw(agent_status background)} = ('working', join ', ', @bg) if @bg;
+        }
         my $s = $since{ $a->{pane_id} };
         $since{ $a->{pane_id} } = $s = [ $a->{agent_status} // '', $now ]
             if !$s || $s->[0] ne ($a->{agent_status} // '');
@@ -85,6 +92,7 @@ async function load(){
       const r=el("div","row"+(a.focused?" focused":""));r.style.setProperty("--c",color);
       const t=el("div","t",a.terminal_title_stripped||a.pane_id);
       if(a.agent_status==="done")t.prepend(el("span","m","done · "));
+      if(a.background)t.prepend(el("span","m",`bg: ${a.background} · `));
       const tg=el("button","tg",open.has(a.pane_id)?"▾ 出力":"▸ 出力");t.append(tg);
       r.append(el("span","dot","●"),el("span","n",(a.cwd||"").split("/").pop()||a.pane_id),t,
         el("span","m",`${a.agent} · ${a.pane_id}`),el("span","age",ago(a.since)));
