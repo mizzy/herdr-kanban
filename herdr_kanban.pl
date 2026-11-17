@@ -63,12 +63,12 @@ __DATA__
 :root{
  --paper:oklch(16% 0.012 260);--paper-2:oklch(20% 0.014 260);--ink:oklch(93% 0.005 260);--ink-2:oklch(68% 0.012 260);
  --ink-3:oklch(52% 0.012 260);--rule:oklch(26% 0.014 260);
- --need:oklch(78% 0.16 70);--work:oklch(72% 0.13 230);--idle:oklch(55% 0.01 260);--focus:oklch(80% 0.12 230);
+ --need:oklch(70% 0.19 25);--done:oklch(78% 0.13 155);--work:oklch(72% 0.13 230);--idle:oklch(55% 0.01 260);--focus:oklch(80% 0.12 230);
  --font-body:"Geist",-apple-system,system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace}
 @media (prefers-color-scheme:light){:root{
  --paper:oklch(98% 0.004 260);--paper-2:oklch(94.5% 0.006 260);--ink:oklch(22% 0.012 260);--ink-2:oklch(45% 0.012 260);
  --ink-3:oklch(56% 0.012 260);--rule:oklch(89% 0.008 260);
- --need:oklch(62% 0.16 55);--work:oklch(55% 0.15 245);--idle:oklch(60% 0.01 260);--focus:oklch(55% 0.15 245)}}
+ --need:oklch(56% 0.2 25);--done:oklch(52% 0.13 155);--work:oklch(55% 0.15 245);--idle:oklch(60% 0.01 260);--focus:oklch(55% 0.15 245)}}
 *{box-sizing:border-box}html,body{overflow-x:clip}
 body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--font-body)}
 header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:18px 28px;border-bottom:1px solid var(--rule)}
@@ -94,14 +94,16 @@ h2::after{content:"";flex:1;height:1px;background:var(--rule)}
 .tg:hover{color:var(--ink)}.tg:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 pre{grid-column:2/-1;font:13px/1.5 var(--font-mono);color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:6px;
  padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;margin:8px 0 0;cursor:auto}
-.r-need{--c:var(--need)}.r-work{--c:var(--work)}.r-idle{--c:var(--idle)}
+.r-need{--c:var(--need)}.r-done{--c:var(--done)}
+.row.r-need{background:color-mix(in oklch,var(--need) 10%,transparent)}.row.r-need:hover{background:color-mix(in oklch,var(--need) 16%,transparent)}
+.r-work{--c:var(--work)}.r-idle{--c:var(--idle)}
 @media (max-width:700px){header,main{padding-left:16px;padding-right:16px}.stats{margin-left:0}
  .row{grid-template-columns:20px minmax(0,1fr) 48px;padding:10px 6px}.n{grid-column:2}.t{grid-column:2/-1}.m{display:none}}
 </style></head><body>
 <header><div class="brand">herdr<span> / board</span></div><div class="stats" id="sum"></div><div class="upd" id="up"></div></header>
 <main id="b"></main>
 <script>
-const SECS=[["need","needs you",["blocked","done"]],["work","working",["working"]],["idle","idle",null]];
+const SECS=[["need","needs you",["blocked"]],["done","done · unseen",["done"]],["work","working",["working"]],["idle","idle",null]];
 const open=new Set();
 const ago=s=>{const d=Date.now()/1000-s;return d<60?"now":d<3600?Math.floor(d/60)+"m":d<86400?Math.floor(d/3600)+"h":Math.floor(d/86400)+"d"};
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
@@ -118,7 +120,6 @@ async function load(){
       const r=el("div",`row r-${key}`+(a.focused?" focused":""));
       const t=el("div","t",a.terminal_title_stripped||a.pane_id);
       if(a.background)t.prepend(el("span","tag",`bg: ${a.background}`));
-      if(a.agent_status==="done")t.prepend(el("span","tag","done"));
       const tg=el("button","tg",open.has(a.pane_id)?"▾ 出力":"▸ 出力");t.append(tg);
       r.append(el("span","dot"),el("span","n",(a.cwd||"").split("/").pop()||a.pane_id),t,
         el("span","m",`${a.agent} · ${a.pane_id}`),el("span","age",ago(a.since)));
@@ -128,7 +129,7 @@ async function load(){
       b.append(r);
     }
   }
-  const n=agents.filter(a=>["blocked","done"].includes(a.agent_status)).length;
+  const n=agents.filter(a=>a.agent_status==="blocked").length;
   document.title=(n?`(${n}) `:"")+"herdr board";
   document.getElementById("up").textContent=new Date().toLocaleTimeString()+" 更新 · 行クリックでフォーカス";
 }
