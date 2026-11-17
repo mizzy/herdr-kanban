@@ -12,6 +12,21 @@ my %since;    # pane_id => [status, epoch] : herdr has no timestamps, so track s
 
 sub herdr { open(my $fh, '-|', 'herdr', @_) or return ''; local $/; my $out = <$fh> // ''; close $fh; $out }
 
+# The .app showing this herdr session: walk up from the session's herdr client process.
+# ponytail: raises the app, not a specific window; with several windows of it, the last-used one comes up
+sub terminal_app {
+    my ($sess) = herdr('status') =~ m{/sessions/([^/]+)/herdr\.sock};
+    my %ps = map { /^\s*(\d+)\s+(\d+)\s+(.*)$/ ? ($1 => [ $2, $3 ]) : () } split /\n/, `ps -axo pid=,ppid=,command=`;
+    my $client = defined $sess ? qr{(?:^|/)herdr --session \Q$sess\E$} : qr{(?:^|/)herdr$};
+    my ($pid) = grep { $ps{$_}[1] =~ $client } keys %ps;
+    for (1 .. 20) {
+        last unless $pid && $ps{$pid};
+        return $1 if $ps{$pid}[1] =~ m{^(/.*?\.app)/};
+        $pid = $ps{$pid}[0];
+    }
+    undef;
+}
+
 sub agents {
     my $list = eval { decode_json(herdr(qw(agent list)))->{result}{agents} } || [];
     my $now  = time;
@@ -48,8 +63,12 @@ while (my $c = $d->accept) {
         my ($code, $type, $body) = (404, 'text/plain', 'not found');
         if    ($p eq '/' && $r->method eq 'GET')             { ($code, $type, $body) = (200, 'text/html; charset=utf-8', $page) }
         elsif ($p eq '/agents')                              { ($code, $type, $body) = (200, 'application/json', encode_json(agents())) }
-        elsif ($p eq '/read' && $pane)                       { ($code, $type, $body) = (200, 'text/plain; charset=utf-8', herdr(qw(agent read), $pane, qw(--lines 40))) }
-        elsif ($p eq '/focus' && $pane && $r->method eq 'POST') { herdr(qw(agent focus), $pane); ($code, $body) = (204, '') }
+        elsif ($p eq '/focus' && $pane && $r->method eq 'POST') {
+            herdr(qw(agent focus), $pane);
+            my $app = terminal_app();
+            system('open', '-a', $app) if $app;
+            ($code, $body) = (204, '');
+        }
         $c->send_response(HTTP::Response->new($code, undef, [ 'Content-Type' => $type ], $body));
     }
     $c->close;
@@ -83,17 +102,13 @@ h2{font:500 12px var(--font-mono);letter-spacing:.12em;text-transform:uppercase;
 h2::after{content:"";flex:1;height:1px;background:var(--rule)}
 .row{display:grid;grid-template-columns:20px 220px minmax(0,1fr) 180px 60px;gap:12px;align-items:baseline;padding:11px 10px;border-radius:6px;cursor:pointer}
 .row:hover{background:var(--paper-2)}
-.row.focused{background:var(--paper-2);box-shadow:inset 2px 0 var(--c)}
+.row.sel{outline:1px solid var(--focus);outline-offset:-1px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--c);align-self:center;box-shadow:0 0 0 3px color-mix(in oklch,var(--c) 22%,transparent)}
 .n{font:500 14px var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .t{font-weight:500;overflow-wrap:anywhere;min-width:0}
 .tag{font:500 12px var(--font-mono);color:var(--c);border:1px solid color-mix(in oklch,var(--c) 45%,transparent);border-radius:4px;padding:1px 6px;margin-right:8px;white-space:nowrap}
 .m{font:13px var(--font-mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .age{font:13px var(--font-mono);color:var(--ink-2);text-align:right}
-.tg{background:none;border:0;border-radius:4px;color:var(--ink-3);font:13px var(--font-mono);padding:0 4px;margin-left:8px;cursor:pointer}
-.tg:hover{color:var(--ink)}.tg:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-pre{grid-column:2/-1;font:13px/1.5 var(--font-mono);color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:6px;
- padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:280px;overflow:auto;margin:8px 0 0;cursor:auto}
 .r-need{--c:var(--need)}.r-done{--c:var(--done)}
 .row.r-need{background:color-mix(in oklch,var(--need) 10%,transparent)}.row.r-need:hover{background:color-mix(in oklch,var(--need) 16%,transparent)}
 .r-work{--c:var(--work)}.r-idle{--c:var(--idle)}
@@ -104,7 +119,8 @@ pre{grid-column:2/-1;font:13px/1.5 var(--font-mono);color:var(--ink-2);backgroun
 <main id="b"></main>
 <script>
 const SECS=[["need","needs you",["blocked"]],["done","done · unseen",["done"]],["work","working",["working"]],["idle","idle",null]];
-const open=new Set();
+let sel=null;   // pane_id under the keyboard cursor (board-only, not herdr focus)
+const select=p=>{sel=p;for(const r of document.querySelectorAll(".row"))r.classList.toggle("sel",r.dataset.pane===p)};
 const ago=s=>{const d=Date.now()/1000-s;return d<60?"now":d<3600?Math.floor(d/60)+"m":d<86400?Math.floor(d/3600)+"h":Math.floor(d/86400)+"d"};
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
 async function load(){
@@ -117,22 +133,27 @@ async function load(){
     if(!list.length)continue;
     b.append(el("h2","r-"+key,`${label} ${list.length}`));
     for(const a of list){
-      const r=el("div",`row r-${key}`+(a.focused?" focused":""));
+      const r=el("div",`row r-${key}`+(a.pane_id===sel?" sel":""));r.dataset.pane=a.pane_id;
       const t=el("div","t",a.terminal_title_stripped||a.pane_id);
       if(a.background)t.prepend(el("span","tag",`bg: ${a.background}`));
-      const tg=el("button","tg",open.has(a.pane_id)?"▾ 出力":"▸ 出力");t.append(tg);
       r.append(el("span","dot"),el("span","n",(a.cwd||"").split("/").pop()||a.pane_id),t,
         el("span","m",`${a.agent} · ${a.pane_id}`),el("span","age",ago(a.since)));
-      tg.onclick=e=>{e.stopPropagation();open.has(a.pane_id)?open.delete(a.pane_id):open.add(a.pane_id);load()};
-      if(open.has(a.pane_id)){const p=el("pre");r.append(p);peek(a.pane_id,p);p.onclick=e=>e.stopPropagation()}
-      r.onclick=()=>fetch("/focus?pane="+encodeURIComponent(a.pane_id),{method:"POST"}).then(load);
+      r.onclick=()=>select(a.pane_id);
       b.append(r);
     }
   }
   const n=agents.filter(a=>a.agent_status==="blocked").length;
   document.title=(n?`(${n}) `:"")+"herdr board";
-  document.getElementById("up").textContent=new Date().toLocaleTimeString()+" 更新 · 行クリックでフォーカス";
+  document.getElementById("up").textContent=new Date().toLocaleTimeString()+" 更新 · ↑↓ 選択 · Enter ターミナルで開く";
 }
-async function peek(p,pre){pre.textContent=await (await fetch("/read?pane="+encodeURIComponent(p))).text()}
+addEventListener("keydown",e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey||e.shiftKey)return;
+  const rows=[...document.querySelectorAll(".row")],i=rows.findIndex(r=>r.dataset.pane===sel);
+  if(e.key==="ArrowDown"||e.key==="ArrowUp"){
+    e.preventDefault();if(!rows.length)return;
+    const j=i<0?0:Math.max(0,Math.min(rows.length-1,i+(e.key==="ArrowDown"?1:-1)));
+    select(rows[j].dataset.pane);rows[j].scrollIntoView({block:"nearest"});
+  }else if(e.key==="Enter"&&i>=0){e.preventDefault();fetch("/focus?pane="+encodeURIComponent(sel),{method:"POST"}).then(load)}
+});
 load();setInterval(load,3000);
 </script></body></html>
