@@ -35,9 +35,12 @@ my $page = do { local $/; <DATA> };
 my $d = HTTP::Daemon->new(LocalAddr => '127.0.0.1', LocalPort => $port, ReuseAddr => 1) or die "listen: $!";
 print "http://127.0.0.1:$port\n";
 
-# ponytail: single-threaded, one request at a time; fine for one browser tab polling every 3s
+# ponytail: single-threaded, one request per connection (no keep-alive, or one open tab would
+# block every other client); fork per connection if a slow herdr call ever stalls the board
 while (my $c = $d->accept) {
-    while (my $r = $c->get_request) {
+    $c->timeout(5);    # drop idle (pre)connections instead of blocking the loop
+    if (my $r = $c->get_request) {
+        $c->force_last_request;
         my $u    = URI->new($r->uri);
         my %q    = $u->query_form;
         my $pane = ($q{pane} // '') =~ /^[\w:]+$/ ? $q{pane} : undef;
