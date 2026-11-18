@@ -79,15 +79,11 @@ __DATA__
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>herdr board</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
+:root{color-scheme:dark;
  --paper:oklch(16% 0.012 260);--paper-2:oklch(20% 0.014 260);--ink:oklch(93% 0.005 260);--ink-2:oklch(68% 0.012 260);
  --ink-3:oklch(52% 0.012 260);--rule:oklch(26% 0.014 260);
  --need:oklch(70% 0.19 25);--done:oklch(78% 0.13 155);--work:oklch(72% 0.13 230);--idle:oklch(55% 0.01 260);--focus:oklch(80% 0.12 230);
  --font-body:"Geist",-apple-system,system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace}
-@media (prefers-color-scheme:light){:root{
- --paper:oklch(98% 0.004 260);--paper-2:oklch(94.5% 0.006 260);--ink:oklch(22% 0.012 260);--ink-2:oklch(45% 0.012 260);
- --ink-3:oklch(56% 0.012 260);--rule:oklch(89% 0.008 260);
- --need:oklch(56% 0.2 25);--done:oklch(52% 0.13 155);--work:oklch(55% 0.15 245);--idle:oklch(60% 0.01 260);--focus:oklch(55% 0.15 245)}}
 *{box-sizing:border-box}html,body{overflow-x:clip}
 body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--font-body)}
 header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:18px 28px;border-bottom:1px solid var(--rule)}
