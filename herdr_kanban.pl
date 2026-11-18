@@ -116,6 +116,7 @@ h2::after{content:"";flex:1;height:1px;background:var(--rule)}
 <script>
 const SECS=[["need","needs you",["blocked"]],["done","done · unseen",["done"]],["work","working",["working"]],["idle","idle",null]];
 let sel=null;   // pane_id under the keyboard cursor (board-only, not herdr focus)
+let pin=null;   // row index to keep the cursor on after Enter, since focusing moves a done row to idle
 const select=p=>{sel=p;for(const r of document.querySelectorAll(".row"))r.classList.toggle("sel",r.dataset.pane===p)};
 const ago=s=>{const d=Date.now()/1000-s;return d<60?"now":d<3600?Math.floor(d/60)+"m":d<86400?Math.floor(d/3600)+"h":Math.floor(d/86400)+"d"};
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
@@ -139,6 +140,7 @@ async function load(){
     }
   }
   const n=agents.filter(a=>a.agent_status==="blocked").length;
+  if(pin!=null){const rows=[...document.querySelectorAll(".row")];if(rows.length)select(rows[Math.min(pin,rows.length-1)].dataset.pane);pin=null}
   document.title=(n?`(${n}) `:"")+"herdr board";
   document.getElementById("up").textContent=new Date().toLocaleTimeString()+" 更新 · ↑↓ 選択 · Enter ターミナルで開く";
 }
@@ -149,7 +151,7 @@ addEventListener("keydown",e=>{
     e.preventDefault();if(!rows.length)return;
     const j=i<0?0:Math.max(0,Math.min(rows.length-1,i+(e.key==="ArrowDown"?1:-1)));
     select(rows[j].dataset.pane);rows[j].scrollIntoView({block:"nearest"});
-  }else if(e.key==="Enter"&&i>=0){e.preventDefault();fetch("/focus?pane="+encodeURIComponent(sel),{method:"POST"}).then(load)}
+  }else if(e.key==="Enter"&&i>=0){e.preventDefault();fetch("/focus?pane="+encodeURIComponent(sel),{method:"POST"}).then(()=>{pin=i;return load()})}
 });
 load();setInterval(load,3000);
 </script></body></html>
