@@ -79,15 +79,11 @@ __DATA__
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>herdr board</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{
+:root{color-scheme:dark;
  --paper:oklch(16% 0.012 260);--paper-2:oklch(20% 0.014 260);--ink:oklch(93% 0.005 260);--ink-2:oklch(68% 0.012 260);
  --ink-3:oklch(52% 0.012 260);--rule:oklch(26% 0.014 260);
  --need:oklch(70% 0.19 25);--done:oklch(78% 0.13 155);--work:oklch(72% 0.13 230);--idle:oklch(55% 0.01 260);--focus:oklch(80% 0.12 230);
  --font-body:"Geist",-apple-system,system-ui,sans-serif;--font-mono:"Geist Mono",ui-monospace,monospace}
-@media (prefers-color-scheme:light){:root{
- --paper:oklch(98% 0.004 260);--paper-2:oklch(94.5% 0.006 260);--ink:oklch(22% 0.012 260);--ink-2:oklch(45% 0.012 260);
- --ink-3:oklch(56% 0.012 260);--rule:oklch(89% 0.008 260);
- --need:oklch(56% 0.2 25);--done:oklch(52% 0.13 155);--work:oklch(55% 0.15 245);--idle:oklch(60% 0.01 260);--focus:oklch(55% 0.15 245)}}
 *{box-sizing:border-box}html,body{overflow-x:clip}
 body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.45 var(--font-body)}
 header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;padding:18px 28px;border-bottom:1px solid var(--rule)}
@@ -120,6 +116,7 @@ h2::after{content:"";flex:1;height:1px;background:var(--rule)}
 <script>
 const SECS=[["need","needs you",["blocked"]],["done","done · unseen",["done"]],["work","working",["working"]],["idle","idle",null]];
 let sel=null;   // pane_id under the keyboard cursor (board-only, not herdr focus)
+let pin=null;   // row index to keep the cursor on after Enter, since focusing moves a done row to idle
 const select=p=>{sel=p;for(const r of document.querySelectorAll(".row"))r.classList.toggle("sel",r.dataset.pane===p)};
 const ago=s=>{const d=Date.now()/1000-s;return d<60?"now":d<3600?Math.floor(d/60)+"m":d<86400?Math.floor(d/3600)+"h":Math.floor(d/86400)+"d"};
 const el=(t,c,txt)=>{const e=document.createElement(t);if(c)e.className=c;if(txt!=null)e.textContent=txt;return e};
@@ -143,6 +140,7 @@ async function load(){
     }
   }
   const n=agents.filter(a=>a.agent_status==="blocked").length;
+  if(pin!=null){const rows=[...document.querySelectorAll(".row")];if(rows.length)select(rows[Math.min(pin,rows.length-1)].dataset.pane);pin=null}
   document.title=(n?`(${n}) `:"")+"herdr board";
   document.getElementById("up").textContent=new Date().toLocaleTimeString()+" 更新 · ↑↓ 選択 · Enter ターミナルで開く";
 }
@@ -153,7 +151,7 @@ addEventListener("keydown",e=>{
     e.preventDefault();if(!rows.length)return;
     const j=i<0?0:Math.max(0,Math.min(rows.length-1,i+(e.key==="ArrowDown"?1:-1)));
     select(rows[j].dataset.pane);rows[j].scrollIntoView({block:"nearest"});
-  }else if(e.key==="Enter"&&i>=0){e.preventDefault();fetch("/focus?pane="+encodeURIComponent(sel),{method:"POST"}).then(load)}
+  }else if(e.key==="Enter"&&i>=0){e.preventDefault();fetch("/focus?pane="+encodeURIComponent(sel),{method:"POST"}).then(()=>{pin=i;return load()})}
 });
 load();setInterval(load,3000);
 </script></body></html>
